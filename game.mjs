@@ -11,8 +11,6 @@ async function askQuestion(question) {
 
 import { ANSI } from './ansi.mjs';
 import { HANGMAN_UI } from './graphics.mjs';
-import { emitKeypressEvents } from 'node:readline';
-import { exit } from 'node:process';
 
 
 
@@ -35,14 +33,22 @@ function restartGame() {
     guessedWord = "".padStart(randomWord.length, "_");
     numberOfCharInWord = randomWord.length;
 }
+const continuePlayingText = "Do you want to continue(y/N)? : ";
+const winnerMessage = "Congratulations, winner winner chicken dinner";
+const roundFinishedText = "Game Over";
+const guessCharOrWordText = "Guess a char or the word : ";
+const addWinToList = "Win";
+const addLossToList = "Loss";
+const continuePlayingLetter = "y";
 
 let randomWord = pickRandomWordFrom(listOfWords);
 let numberOfCharInWord = randomWord.length;
-let guessedWord = "".padStart(randomWord.length, "_"); // "" is an empty string that we then fill with _ based on the number of char in the correct word.
+let guessedWord = "".padStart(randomWord.length, "_");
 let wordDisplay = "";
 let isGameOver = false;
 let wasGuessCorrect = false;
 let wrongGuesses = [];
+let stats = [];
 let exitGame = false;
 function gameIsRunning() {
     return exitGame == false;
@@ -53,9 +59,16 @@ function pickRandomWordFrom (wordList){
 
 }
 
-//wordDisplay += ANSI.COLOR.GREEN;
 while (gameIsRunning()) {
-    function drawWordDisplay() {
+
+    function drawHangman() {
+        console.log(ANSI.CLEAR_SCREEN);
+        console.log(drawCorrectWordDisplayed());
+        console.log(createColouredStringFromList(new Set(wrongGuesses), ANSI.COLOR.RED));
+        console.log(HANGMAN_UI[wrongGuesses.length]);
+    }
+
+    function drawCorrectWordDisplayed() {
 
         wordDisplay = "";
 
@@ -80,20 +93,17 @@ while (gameIsRunning()) {
         return output + ANSI.RESET;
     }
 
-    // Continue playing until the game is over. 
     while (isGameOver == false) {
 
-        console.log(ANSI.CLEAR_SCREEN);
-        console.log(drawWordDisplay());
-        console.log(createColouredStringFromList(new Set(wrongGuesses), ANSI.COLOR.RED));
-        console.log(HANGMAN_UI[wrongGuesses.length]);
+        drawHangman();
 
-        const answer = (await askQuestion("Guess a char or the word : ")).toLowerCase();
+        const answer = (await askQuestion(guessCharOrWordText)).toLowerCase();
 
         if (answer == randomWord) {
             isGameOver = true;
             wasGuessCorrect = true;
             guessedWord = answer;
+            stats.push(addWinToList);
         } else if (ifPlayerGuessedLetter(answer) == false) {
             let isCorrect = false;
             if (answer != randomWord) {
@@ -108,14 +118,17 @@ while (gameIsRunning()) {
             let isCorrect = false;
             for (let i = 0; i < randomWord.length; i++) {
                 if (randomWord[i] == answer) {
-                    if (guessedWord[i] == answer) {
+                    if ( org[i] == answer) {
                         isCorrect = false;
+                        wrongGuesses.push(answer);
+                        guessedWord += org[i];
+                    
                     } else {
                         guessedWord += answer;
                         isCorrect = true;
+                        
                     }
-                } else {
-                    // If the currents answer is not what is in the space, we should keep the char that is allready in that space. 
+                } else { 
                     guessedWord += org[i];
                 }
             }
@@ -125,34 +138,30 @@ while (gameIsRunning()) {
             } else if (guessedWord == randomWord) {
                 isGameOver = true;
                 wasGuessCorrect = true;
+                
+                stats.push(addWinToList);
             }
         }
 
-        // Read as "Has the player made to many wrong guesses". 
-        // This works because we cant have more wrong guesses then we have drawings. 
         if (wrongGuesses.length == HANGMAN_UI.length - 1) {
             isGameOver = true;
+            
+            stats.push(addLossToList);
+            
         }
 
     }
 
-    // OUR GAME HAS ENDED.
-
-    console.log(ANSI.CLEAR_SCREEN);
-    console.log(drawWordDisplay());
-    console.log(createColouredStringFromList(wrongGuesses, ANSI.COLOR.RED));
-    console.log(HANGMAN_UI[wrongGuesses.length]);
+    drawHangman();
 
     if (wasGuessCorrect) {
-        console.log(ANSI.COLOR.YELLOW + "Congratulations, winner winner chicken dinner");
+        console.log(ANSI.COLOR.YELLOW + winnerMessage);
     }
-
-    console.log("Game Over");
-    let continuePlaying = await askQuestion("Do you want to continue(y/N)? : ");
     
+    console.log(roundFinishedText);
+    let continuePlaying = await askQuestion(continuePlayingText);
 
-
-    if(continuePlaying[0].toLowerCase() != "y"){
+    if(continuePlaying[0].toLowerCase() != continuePlayingLetter){
          exitGame = true; 
     } 
     
@@ -160,9 +169,9 @@ while (gameIsRunning()) {
     
 }
 
+console.log(stats);
 process.exit();
 
 function ifPlayerGuessedLetter(answer) {
     return answer.length == 1
 }
-
